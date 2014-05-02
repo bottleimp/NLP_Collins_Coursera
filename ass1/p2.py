@@ -9,10 +9,6 @@ from count_freqs import Hmm
 from hmm import ViterbiTagger
 
 
-"""
-Count word frequencies in a data file and rewrite the RARE(freq<5) words to
-_RARE_
-"""
 def gene_word_iterator(input):
     l = input.readline()
     while l:
@@ -23,33 +19,55 @@ def gene_word_iterator(input):
             yield None
         l = input.readline()
 
-def tag(tagger, input, output):
-    i = 0
-    for word in gene_word_iterator(input):
-        if word:
-            output.write("%s %s\n" % (word, tagger.y_star(word)[1]))
+
+def sentence_iterator(corpus_iterator):
+    """
+    Return an iterator object that yields one sentence at a time.
+    """
+    current_sentence = []  # Buffer for the current sentence
+    for word in corpus_iterator:
+        if word is None:
+            if current_sentence:  # Reached the end of a sentence
+                yield current_sentence
+                current_sentence = []  # Reset buffer
+            else:  # Got empty input stream
+                sys.stderr.write("WARNING: Got empty input file/stream.\n")
+                raise StopIteration
         else:
-            output.write("\n")
-        i = i + 1
-        if i % 1000 == 0:
-            print i, " lines passed"
+            current_sentence.append(word)  # Add token to the buffer
+
+    if current_sentence:  # If the last line was blank, we're done
+        yield current_sentence  # Otherwise when there is no more token
+        # in the stream return the last sentence.
+
+
+def tag(tagger, input, output):
+    k = 0
+    for sentence in sentence_iterator(gene_word_iterator(input)):
+        tags = tagger.tag(sentence)
+        for i in xrange(len(tags)):
+            output.write("%s %s\n" % (sentence[i], tags[i]))
+        output.write("\n")
+        k += 1
+        if k % 100 == 0:
+            print k, " sentence passed"
+
 
 def train(tagger, train_filename, rare_filename):
     # 1. read train file, count words
     tagger.count_word(corpus_iter(file(train_filename)))
 
-    REPLACE = False
-    if REPLACE:
+    replace = False
+    if replace:
         # 2. replace rare words
-        tagger.replace_rare_tag(corpus_iter(file(train_filename)), 
-                file(rare_filename, 'w'))
+        tagger.replace_rare_tag(corpus_iter(file(train_filename)),
+                                file(rare_filename, 'w'))
 
-    # 3. read repalced train file, count ngrams
+    # 3. read replaced train file, count ngrams
     tagger.train(file(rare_filename))
 
 
 def main():
-    TRAIN = True
     # 1. training
     train_filename = 'gene.train'
     rare_filename = 'gene.train.rare'
@@ -59,9 +77,10 @@ def main():
 
     # 2. tagging
     test_filename = 'gene.dev'
-    pred_filename = 'gene_dev.p1.out'
+    pred_filename = 'gene_dev.p2.out'
 
     tag(tagger, file(test_filename), file(pred_filename, 'w'))
+
 
 if __name__ == "__main__":
     main()
