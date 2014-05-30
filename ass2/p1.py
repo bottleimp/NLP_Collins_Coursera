@@ -80,13 +80,6 @@ class Parser(Tagger):
 
     def parser(self, sentence):
         n = len(sentence)
-        '''
-        for i in xrange(0, n):
-            if self.is_rare_word(sentence[i]):
-                sentence[i] = self.rare_tag
-
-        print sentence
-                '''
 
         w = [None]
         w.extend(sentence)
@@ -120,3 +113,12 @@ class Parser(Tagger):
 
         return tree
 
+    def output_parse(self, input_filename, output_filename):
+        f_in = file(input_filename)
+        f_out = file(output_filename, 'w')
+        for line in f_in:
+            words = line.strip().split(' ')
+            f_out.write('%s\n' % json.dumps(self.parser(words)))
+
+        f_in.close()
+        f_out.close()
