@@ -53,7 +53,6 @@ class Tagger(Counts):
 class Parser(Tagger):
     def __init__(self):
         Tagger.__init__(self)
-        self.pi = defaultdict(float)
 
     def count_x(self, x):
         return self.nonterm[x]
@@ -117,8 +116,38 @@ class Parser(Tagger):
         f_in = file(input_filename)
         f_out = file(output_filename, 'w')
         for line in f_in:
+            print 'sentence to process: %s' % line
             words = line.strip().split(' ')
             f_out.write('%s\n' % json.dumps(self.parser(words)))
 
         f_in.close()
         f_out.close()
+
+
+class VertParser(Parser):
+    def __init__(self):
+        Tagger.__init__(self)
+
+    def parser(self, sentence):
+        n = len(sentence)
+
+        w = [None]
+        w.extend(sentence)
+        pi = defaultdict(float)
+        bp = defaultdict(float)
+        for i in xrange(1, n+1):
+            for x in self.nonterm:
+                pi[(i, i, x)] = self.q_x_w(x, w[i])
+
+        for l in xrange(1, n):
+            for i in xrange(1, n):
+                j = i + l
+                for x in self.nonterm:
+                    t = [(y, z, s) for s in xrange(i, j) for (xp, y, z) in self.binary
+                         if xp == x and pi[(i, s, y)] != 0 and pi[(s+1, j, z)] != 0]
+                    if t:
+                        bp[(i, j, x)] = max(t, key=lambda (y, z, s): self.q_x_yy(x, y, z) * pi[(i, s, y)] * pi[(s+1, j, z)])
+                        (y, z, s) = bp[(i, j, x)]
+                        pi[(i, j, x)] = self.q_x_yy(x, y, z) * pi[(i, s, y)] * pi[(s+1, j, z)]
+
+        return self.build_tree(1, n, 'SBARQ', w, bp)
